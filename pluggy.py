@@ -4,7 +4,6 @@ from tkinter import messagebox
 from selenium import webdriver
 from selenium.common import exceptions
 import csv, os
-from threading import Thread
 
 top = Tk()
 user_vars = {}
@@ -117,7 +116,7 @@ def save_program(tb):
                                          filetypes=(("Browser automation programs", "*.bap"), ("All files", "*.*")))
     if fname == "":
         return
-    with open(fname, "w") as fopen:
+    with open(fname if ".bap" in fname else fname + ".bap", "w") as fopen:
         text2save = str(tb.get("1.0", END))
         fopen.write(text2save)
 

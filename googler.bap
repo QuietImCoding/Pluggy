@@ -1,0 +1,8 @@
+set google 'https://www.google.com'
+set searchbar '#lst-ib'
+set searchbtn '#tsf > div.tsf-p > div.jsb > center > input[type="submit"]:nth-child(1)'
+
+goto google
+click searchbar
+type ShippingCity
+click searchbtn
