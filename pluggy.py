@@ -64,7 +64,7 @@ def parseCommand(s):
             global user_vars
             quotes = allindices(s, "'")
             user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
-        if tokens[0] == 'sum' and len(tokens) == 4:
+        if tokens[0] == 'paste' and len(tokens) == 4:
             user_vars[tokens[1]] = user_vars[tokens[2]] + user_vars[tokens[3]]
         if tokens[0] == 'click':
             global selected

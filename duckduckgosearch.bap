@@ -1,0 +1,7 @@
+set duckduckgo 'https://duckduckgo.com/'
+set searchbar '#search_form_input_homepage'
+set searchbtn '#search_button_homepage'
+goto duckduckgo
+click searchbar
+type name
+click searchbtn
