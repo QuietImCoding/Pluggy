@@ -48,7 +48,8 @@ def pop_a_window():
         driver = webdriver.Chrome()
         driver.get("https://web.tabliss.io/")
     else:
-        openanyway = messagebox.askokcancel("Pluggy", "Only one webdriver can be used at a time. Are you sure you want to open another one?")
+        openanyway = messagebox.askokcancel("Pluggy",
+                                            "Only one webdriver can be used at a time. Are you sure you want to open another one?")
         if openanyway:
             driver = webdriver.Chrome()
             driver.get("https://web.tabliss.io/")
@@ -71,38 +72,69 @@ def parseCommand(s):
             toclick = user_vars[tokens[1]]
             elem = driver.find_element_by_css_selector(toclick)
             selected = elem
-            driver.execute_script("document.querySelector('" + toclick + "').click();" )
+            driver.execute_script("document.querySelector('" + toclick + "').click();")
         if tokens[0] == 'goto':
             driver.get(user_vars[tokens[1]])
         if tokens[0] == "type":
             selected.send_keys(user_vars[tokens[1]])
-    except exceptions.NoSuchWindowException:
+    except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
         driver = None
-        return
+        raise ValueError("Some webdriver related exception occurred.")
+
 
 def run_program(tb, mainwindow):
-    mainwindow.update()
     global driver
     if driver is None:
-        messagebox.showerror("No browser opened!!",
-                             "Open a browser and setup whatever you need before running this script")
+        messagebox.showerror("No open browser",
+                             "Make sure you have a browser open before you run the script.")
+        return
     program = tb.get("1.0", 'end-1c').split("\n")
     global user_vars
     user_vars = {}
-    try:
-        for row in csvdat:
+    for row in csvdat:
+        try:
             user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
             for line in program:
+                mainwindow.update()
                 parseCommand(line.strip())
-    except exceptions.NoSuchWindowException:
-        driver = None
+        except ValueError as e:
+            messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
+            break
+        except KeyError as e:
+            messagebox.showerror("Program Error", "Variable "
+                                 + str(e)
+                                 + " not found. Check your spelling and capitalization. Remember any spaces in variable names are replaced with underscores")
+            break
+        except IndexError:
+            messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
+            break
+
+def test_program(tb, mainwindow):
+    global driver
+    if driver is None:
+        messagebox.showerror("No open browser",
+                             "Make sure you have a browser open before you run the script.")
         return
-
-
+    program = tb.get("1.0", 'end-1c').split("\n")
+    global user_vars
+    user_vars = {}
+    row = csvdat[0]
+    try:
+        user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
+        for line in program:
+            parseCommand(line.strip())
+    except ValueError as e:
+        messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
+    except KeyError as e:
+        messagebox.showerror("Program Error", "Variable "
+                             + str(e)
+                             + " not found. Check your spelling and capitalization. Remember any spaces in variable names are replaced with underscores")
+    except IndexError:
+        messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
 
 def open_program(tb):
     fname = filedialog.askopenfilename(initialdir=".", title="Select file to Open",
-                                       filetypes=(("Browser automation programs", "*.bap"), ("All files", "*.*")))
+                                       filetypes=(("Pluggy program", "*.plgy"), ("All files", "*.*")))
     if fname == "":
         return
     with open(fname, "r") as fopen:
@@ -113,10 +145,10 @@ def open_program(tb):
 
 def save_program(tb):
     fname = filedialog.asksaveasfilename(initialdir=".", title="Where should the file be saved?",
-                                         filetypes=(("Browser automation programs", "*.bap"), ("All files", "*.*")))
+                                         filetypes=(("Pluggy program", "*.plgy"), ("All files", "*.*")))
     if fname == "":
         return
-    with open(fname if ".bap" in fname else fname + ".bap", "w") as fopen:
+    with open(fname if "*.plgy" in fname else fname + "*.plgy", "w") as fopen:
         text2save = str(tb.get("1.0", END))
         fopen.write(text2save)
 
@@ -129,10 +161,14 @@ textarea.grid(row=0, column=1, sticky=N + E + S + W, padx=30, pady=10)
 
 rightbtns = Frame(top)
 browserbuttons = Frame(rightbtns)
-runbtn = Button(browserbuttons, text="Run program", command=lambda: run_program(textarea, top))
 popbtn = Button(browserbuttons, text="Start Browser", command=pop_a_window)
+testbtn = Button(browserbuttons, text="Test program", command=lambda: test_program(textarea, top))
+runbtn = Button(browserbuttons, text="Run program", command=lambda: run_program(textarea, top))
+
 popbtn.pack(side=LEFT, padx=5)
+testbtn.pack(side=LEFT, padx=5)
 runbtn.pack(side=LEFT, padx=5)
+
 
 filebtns = Frame(rightbtns)
 openbtn = Button(filebtns, text="Open program", command=lambda: open_program(textarea))
@@ -140,8 +176,8 @@ savebtn = Button(filebtns, text="Save program", command=lambda: save_program(tex
 openbtn.pack(side=LEFT, padx=5)
 savebtn.pack(side=LEFT, padx=5)
 
-browserbuttons.pack(side=LEFT, padx=5)
-filebtns.pack(side=LEFT, padx=5)
+browserbuttons.pack(side=LEFT, padx=10)
+filebtns.pack(side=LEFT, padx=10)
 rightbtns.grid(row=1, column=1, sticky=S, padx=10, pady=10)
 
 csvarea = Frame(top)

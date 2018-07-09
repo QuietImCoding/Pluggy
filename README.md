@@ -26,14 +26,17 @@ The main parts of the window you'll see are:
     especially if you need to sign into a website to use it in your script. 
 * The scripting window
     * This is where you write + test pluggy scripts
+* The test program button
+    * This only runs your script on the first row of data and is invaluable for testing if you're running a lot of steps. 
 * The run program button
     * This runs your script for each row of the CSV file you loaded. 
 
 Generally, the process to run a script will be:
 1. Import a csv
-2. Write or load a pluggy script file (.bap extension)
+2. Write or load a pluggy script file (.plgy extension)
 3. Start a browser (log in to sites if neccessary)
-4. Run script
+4. Test script on one element
+5. Run script
 
 ## Finding website elements
 
