@@ -15,6 +15,12 @@ available = StringVar()
 selected = None
 
 
+def updateVars(dat):
+    fields = ", \n".join(dat) if len(dat) < 25 else ", \n".join(
+        dat[:25]) + " ..."
+    available.set("Available fields:\n" + fields)
+
+
 def allindices(string, sub, offset=0):
     listindex = []
     i = string.find(sub, offset)
@@ -31,11 +37,11 @@ def load_csv():
         return
     loadstatus.set("Loading " + os.path.basename(fname))
     global csvdat
+    csvdat = []
     with open(fname) as csvfile:
         reader = csv.DictReader(csvfile)
         rfieldnames = [fieldname.replace(" ", "_") for fieldname in reader.fieldnames]
-        fields = ", \n".join(rfieldnames) if len(rfieldnames) < 25 else ", \n".join(rfieldnames[:25]) + " ..."
-        available.set("Available fields: " + fields)
+        updateVars(rfieldnames)
         for row in reader:
             row = {key.replace(" ", "_"): row[key] for key in row.keys()}
             csvdat.append(row)
@@ -62,7 +68,6 @@ def parseCommand(s):
         return
     try:
         if tokens[0] == 'set':
-            global user_vars
             quotes = allindices(s, "'")
             user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
         if tokens[0] == 'paste' and len(tokens) == 4:
@@ -78,6 +83,7 @@ def parseCommand(s):
         if tokens[0] == "type":
             selected.send_keys(user_vars[tokens[1]])
     except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
+        driver.quit()
         driver = None
         raise ValueError("Some webdriver related exception occurred.")
 
@@ -91,6 +97,9 @@ def run_program(tb, mainwindow):
     program = tb.get("1.0", 'end-1c').split("\n")
     global user_vars
     user_vars = {}
+    if len(csvdat) == 0:
+        messagebox.showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
+        return
     for row in csvdat:
         try:
             user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
@@ -109,8 +118,11 @@ def run_program(tb, mainwindow):
             messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
             break
 
+
 def test_program(tb, mainwindow):
     global driver
+    global csvdat
+
     if driver is None:
         messagebox.showerror("No open browser",
                              "Make sure you have a browser open before you run the script.")
@@ -118,19 +130,27 @@ def test_program(tb, mainwindow):
     program = tb.get("1.0", 'end-1c').split("\n")
     global user_vars
     user_vars = {}
-    row = csvdat[0]
+    if len(csvdat) > 0:
+        row = csvdat[0]
+    else:
+        messagebox.showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
+        return
     try:
         user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
         for line in program:
+            mainwindow.update()
             parseCommand(line.strip())
+        updateVars(user_vars.keys())
     except ValueError as e:
         messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
     except KeyError as e:
         messagebox.showerror("Program Error", "Variable "
                              + str(e)
-                             + " not found. Check your spelling and capitalization. Remember any spaces in variable names are replaced with underscores")
+                             + " not found. Check your spelling and capitalization. "
+                             + "Remember any spaces in variable names are replaced with underscores")
     except IndexError:
         messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
+
 
 def open_program(tb):
     fname = filedialog.askopenfilename(initialdir=".", title="Select file to Open",
@@ -157,6 +177,8 @@ top.title("Pluggy")
 top.iconbitmap("plug.ico")
 # Code to add widgets will go here...
 textarea = Text(top, height=6, width=30)
+scrollbar = Scrollbar(top, command = textarea.yview)
+scrollbar.place(in_= textarea, relx=1.0, relheight = 1.0, bordermode="outside")
 textarea.grid(row=0, column=1, sticky=N + E + S + W, padx=30, pady=10)
 
 rightbtns = Frame(top)
@@ -168,7 +190,6 @@ runbtn = Button(browserbuttons, text="Run program", command=lambda: run_program(
 popbtn.pack(side=LEFT, padx=5)
 testbtn.pack(side=LEFT, padx=5)
 runbtn.pack(side=LEFT, padx=5)
-
 
 filebtns = Frame(rightbtns)
 openbtn = Button(filebtns, text="Open program", command=lambda: open_program(textarea))
@@ -183,6 +204,7 @@ rightbtns.grid(row=1, column=1, sticky=S, padx=10, pady=10)
 csvarea = Frame(top)
 loadtitle = Label(csvarea, text="CSV status", font="TkDefaultFont 16 bold")
 loadtitle.pack(fill="y", expand=True)
+loadtitle.bind("<Button-1>", lambda e: print(top.geometry()))
 csvstatus = Label(csvarea, textvariable=loadstatus)
 csvstatus.pack()
 availfields = Label(csvarea, textvariable=available)
@@ -195,4 +217,7 @@ loadbtn.grid(row=1, column=0, sticky=S, padx=10, pady=10)
 top.columnconfigure(0, weight=1)
 top.columnconfigure(1, weight=1)
 top.rowconfigure(0, weight=1)
+top.minsize(665, 225)
 top.mainloop()
+if driver is not None:
+    driver.quit()

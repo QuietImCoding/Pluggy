@@ -8,6 +8,9 @@ It then runs the script you give it while iterating over a CSV file you provide.
  
 ## Installing Pluggy
 
+If you have python installed or want to modify source code, you can pull this repository and just run pluggy.py. 
+If you just want to use pluggy as-is, you can extract the Pluggy.zip file to a folder and run the pluggy.exe file in the resulting folder.
+
 ## General Usage Instructions
 Once pluggy is opened, you should see a window that looks like this
 
