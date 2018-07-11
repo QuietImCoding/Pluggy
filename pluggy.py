@@ -2,22 +2,27 @@ from tkinter import filedialog
 from tkinter import *
 from tkinter import messagebox
 from selenium import webdriver
+from selenium.webdriver.common.keys import  Keys
 from selenium.common import exceptions
+from PIL import Image, ImageTk
 import csv, os
 
 top = Tk()
 user_vars = {}
 driver = None
 csvdat = []
+resultdat = []
 loadstatus = StringVar()
 loadstatus.set("Not Yet Loaded")
 available = StringVar()
 selected = None
 
+def asciify(s):
+    return s.encode('ascii', errors = 'ignore').decode()
 
 def updateVars(dat):
-    fields = ", \n".join(dat) if len(dat) < 25 else ", \n".join(
-        dat[:25]) + " ..."
+    dat = [asciify(d) for d in dat]
+    fields = ", \n".join(dat) if len(dat) < 15 else ", \n".join(dat[:15]) + " ..."
     available.set("Available fields:\n" + fields)
 
 
@@ -38,15 +43,24 @@ def load_csv():
     loadstatus.set("Loading " + os.path.basename(fname))
     global csvdat
     csvdat = []
-    with open(fname) as csvfile:
+    with open(fname, encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
-        rfieldnames = [fieldname.replace(" ", "_") for fieldname in reader.fieldnames]
+        rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
         updateVars(rfieldnames)
         for row in reader:
             row = {key.replace(" ", "_"): row[key] for key in row.keys()}
             csvdat.append(row)
     loadstatus.set(os.path.basename(fname) + " loaded.")
 
+
+def export_csv():
+    fname = filedialog.asksaveasfilename(initialdir=".", title="Where should the file be saved?",
+                                         filetypes=(("CSV files", "*.csv"), ("All files", "*.*")))
+    if fname == "":
+        return
+    with open(fname, encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile)
+        writer.writerows(resultdat)
 
 def pop_a_window():
     global driver
@@ -82,7 +96,10 @@ def parseCommand(s):
             driver.get(user_vars[tokens[1]])
         if tokens[0] == "type":
             selected.send_keys(user_vars[tokens[1]])
+        if tokens[0] == "enter":
+            selected.send_keys(Keys.RETURN)
     except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
+        print(e)
         driver.quit()
         driver = None
         raise ValueError("Some webdriver related exception occurred.")
@@ -106,7 +123,7 @@ def run_program(tb, mainwindow):
             for line in program:
                 mainwindow.update()
                 parseCommand(line.strip())
-        except ValueError as e:
+        except ValueError:
             messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
             break
         except KeyError as e:
@@ -141,7 +158,7 @@ def test_program(tb, mainwindow):
             mainwindow.update()
             parseCommand(line.strip())
         updateVars(user_vars.keys())
-    except ValueError as e:
+    except ValueError:
         messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
     except KeyError as e:
         messagebox.showerror("Program Error", "Variable "
@@ -153,7 +170,7 @@ def test_program(tb, mainwindow):
 
 
 def open_program(tb):
-    fname = filedialog.askopenfilename(initialdir=".", title="Select file to Open",
+    fname = filedialog.askopenfilename(initialdir="./scripts", title="Select file to Open",
                                        filetypes=(("Pluggy program", "*.plgy"), ("All files", "*.*")))
     if fname == "":
         return
@@ -164,17 +181,24 @@ def open_program(tb):
 
 
 def save_program(tb):
-    fname = filedialog.asksaveasfilename(initialdir=".", title="Where should the file be saved?",
+    fname = filedialog.asksaveasfilename(initialdir="./scripts", title="Where should the file be saved?",
                                          filetypes=(("Pluggy program", "*.plgy"), ("All files", "*.*")))
     if fname == "":
         return
-    with open(fname if "*.plgy" in fname else fname + "*.plgy", "w") as fopen:
+    with open(fname if ".plgy" in fname else fname + ".plgy", "w") as fopen:
         text2save = str(tb.get("1.0", END))
         fopen.write(text2save)
 
 
+def end_program():
+    global driver
+    if driver is not None:
+        driver.quit()
+        driver = None
+    else:
+        messagebox.showerror("No running program", "There is no program running that you can end.")
 top.title("Pluggy")
-top.iconbitmap("plug.ico")
+top.iconbitmap("pluggy.ico")
 # Code to add widgets will go here...
 textarea = Text(top, height=6, width=30)
 scrollbar = Scrollbar(top, command = textarea.yview)
@@ -186,10 +210,11 @@ browserbuttons = Frame(rightbtns)
 popbtn = Button(browserbuttons, text="Start Browser", command=pop_a_window)
 testbtn = Button(browserbuttons, text="Test program", command=lambda: test_program(textarea, top))
 runbtn = Button(browserbuttons, text="Run program", command=lambda: run_program(textarea, top))
-
+quitbtn = Button(browserbuttons, text="End program", command=end_program)
 popbtn.pack(side=LEFT, padx=5)
 testbtn.pack(side=LEFT, padx=5)
 runbtn.pack(side=LEFT, padx=5)
+quitbtn.pack(side=LEFT, padx=5)
 
 filebtns = Frame(rightbtns)
 openbtn = Button(filebtns, text="Open program", command=lambda: open_program(textarea))
@@ -202,6 +227,10 @@ filebtns.pack(side=LEFT, padx=10)
 rightbtns.grid(row=1, column=1, sticky=S, padx=10, pady=10)
 
 csvarea = Frame(top)
+img = ImageTk.PhotoImage(Image.open("pluggy.png").convert("RGBA").resize((115, 125)))
+plabel = Label(csvarea, image=img)
+plabel.image = img
+plabel.pack(padx=10, pady=10)
 loadtitle = Label(csvarea, text="CSV status", font="TkDefaultFont 16 bold")
 loadtitle.pack(fill="y", expand=True)
 loadtitle.bind("<Button-1>", lambda e: print(top.geometry()))
@@ -217,7 +246,7 @@ loadbtn.grid(row=1, column=0, sticky=S, padx=10, pady=10)
 top.columnconfigure(0, weight=1)
 top.columnconfigure(1, weight=1)
 top.rowconfigure(0, weight=1)
-top.minsize(665, 225)
+top.minsize(800, 300)
 top.mainloop()
 if driver is not None:
     driver.quit()
