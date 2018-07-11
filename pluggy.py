@@ -16,6 +16,10 @@ loadstatus = StringVar()
 loadstatus.set("Not Yet Loaded")
 available = StringVar()
 selected = None
+paused = False
+
+def pause():
+    print(paused)
 
 def asciify(s):
     return s.encode('ascii', errors = 'ignore').decode()
@@ -78,7 +82,7 @@ def pop_a_window():
 def parseCommand(s):
     global driver
     tokens = s.split()
-    if len(tokens) < 2:
+    if len(tokens) < 2 or driver is None:
         return
     try:
         if tokens[0] == 'set':
@@ -197,6 +201,7 @@ def end_program():
         driver = None
     else:
         messagebox.showerror("No running program", "There is no program running that you can end.")
+
 top.title("Pluggy")
 top.iconbitmap("pluggy.ico")
 # Code to add widgets will go here...
@@ -208,8 +213,8 @@ textarea.grid(row=0, column=1, sticky=N + E + S + W, padx=30, pady=10)
 rightbtns = Frame(top)
 browserbuttons = Frame(rightbtns)
 popbtn = Button(browserbuttons, text="Start Browser", command=pop_a_window)
-testbtn = Button(browserbuttons, text="Test program", command=lambda: test_program(textarea, top))
-runbtn = Button(browserbuttons, text="Run program", command=lambda: run_program(textarea, top))
+testbtn = Button(browserbuttons, text="Test program", command=lambda: top.after(test_program(textarea, top)))
+runbtn = Button(browserbuttons, text="Run program", command=lambda: top.after(run_program(textarea, top)))
 quitbtn = Button(browserbuttons, text="End program", command=end_program)
 popbtn.pack(side=LEFT, padx=5)
 testbtn.pack(side=LEFT, padx=5)
