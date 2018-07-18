@@ -2,7 +2,7 @@ from tkinter import filedialog
 from tkinter import *
 from tkinter import messagebox
 from selenium import webdriver
-from selenium.webdriver.common.keys import  Keys
+from selenium.webdriver.common.keys import Keys
 from selenium.common import exceptions
 from PIL import Image, ImageTk
 import csv, os
@@ -17,15 +17,20 @@ loadstatus.set("Not Yet Loaded")
 available = StringVar()
 selected = None
 paused = False
+cliks = 0
+
 
 def pause():
     print(paused)
 
+
 def asciify(s):
-    return s.encode('ascii', errors = 'ignore').decode()
+    print(s)
+    return s.encode('ascii', errors='ignore').decode().strip()
+
 
 def updateVars(dat):
-    dat = [asciify(d) for d in dat]
+    dat = [d for d in dat]
     fields = ", \n".join(dat) if len(dat) < 15 else ", \n".join(dat[:15]) + " ..."
     available.set("Available fields:\n" + fields)
 
@@ -49,7 +54,17 @@ def load_csv():
     csvdat = []
     with open(fname, encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
-        rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
+        try:
+            rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
+        except UnicodeDecodeError as e:
+            print(e)
+            messagebox.showerror("Parsing Error",
+                                 "Unable to parse csv file due to unexpected unicode characters in column names. " +
+                                 "Consider renaming your column names and trying agin. " +
+                                 "If the problem persists, file an issue on Github")
+            loadstatus.set("Import a CSV")
+            available.set("")
+            return
         updateVars(rfieldnames)
         for row in reader:
             row = {key.replace(" ", "_"): row[key] for key in row.keys()}
@@ -65,6 +80,7 @@ def export_csv():
     with open(fname, encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile)
         writer.writerows(resultdat)
+
 
 def pop_a_window():
     global driver
@@ -102,8 +118,9 @@ def parseCommand(s):
             selected.send_keys(user_vars[tokens[1]])
         if tokens[0] == "enter":
             selected.send_keys(Keys.RETURN)
+    except exceptions.InvalidSelectorException:
+        raise exceptions.InvalidSelectorException("hm")
     except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
-        print(e)
         driver.quit()
         driver = None
         raise ValueError("Some webdriver related exception occurred.")
@@ -133,11 +150,16 @@ def run_program(tb, mainwindow):
         except KeyError as e:
             messagebox.showerror("Program Error", "Variable "
                                  + str(e)
-                                 + " not found. Check your spelling and capitalization. Remember any spaces in variable names are replaced with underscores")
+                                 + " not found. Check your spelling and capitalization." +
+                                 " Remember any spaces in variable names are replaced with underscores")
             break
         except IndexError:
             messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
             break
+        except exceptions.InvalidSelectorException:
+            messagebox.showerror("Program Error", "Invalid css selector used. " +
+                                 "Make sure you're using the right selectors and check your click commands.")
+            return
 
 
 def test_program(tb, mainwindow):
@@ -171,6 +193,9 @@ def test_program(tb, mainwindow):
                              + "Remember any spaces in variable names are replaced with underscores")
     except IndexError:
         messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
+    except exceptions.InvalidSelectorException:
+        print("invalid selector")
+        return
 
 
 def open_program(tb):
@@ -202,19 +227,31 @@ def end_program():
     else:
         messagebox.showerror("No running program", "There is no program running that you can end.")
 
+
+def trap(e):
+    global cliks
+    cliks += 1
+    if cliks > 1:
+        v = messagebox.askyesno("Proceed with caution", "Are you the developer?")
+        if v:
+            for i in range(20):
+                messagebox.showerror("Big mistake", "You have activated my trap card")
+        cliks = 0
+
+
 top.title("Pluggy")
 top.iconbitmap("pluggy.ico")
 # Code to add widgets will go here...
 textarea = Text(top, height=6, width=30)
-scrollbar = Scrollbar(top, command = textarea.yview)
-scrollbar.place(in_= textarea, relx=1.0, relheight = 1.0, bordermode="outside")
+scrollbar = Scrollbar(top, command=textarea.yview)
+scrollbar.place(in_=textarea, relx=1.0, relheight=1.0, bordermode="outside")
 textarea.grid(row=0, column=1, sticky=N + E + S + W, padx=30, pady=10)
 
 rightbtns = Frame(top)
 browserbuttons = Frame(rightbtns)
 popbtn = Button(browserbuttons, text="Start Browser", command=pop_a_window)
-testbtn = Button(browserbuttons, text="Test program", command=lambda: top.after(test_program(textarea, top)))
-runbtn = Button(browserbuttons, text="Run program", command=lambda: top.after(run_program(textarea, top)))
+testbtn = Button(browserbuttons, text="Test program", command=lambda: test_program(textarea, top))
+runbtn = Button(browserbuttons, text="Run program", command=lambda: run_program(textarea, top))
 quitbtn = Button(browserbuttons, text="End program", command=end_program)
 popbtn.pack(side=LEFT, padx=5)
 testbtn.pack(side=LEFT, padx=5)
@@ -238,7 +275,7 @@ plabel.image = img
 plabel.pack(padx=10, pady=10)
 loadtitle = Label(csvarea, text="CSV status", font="TkDefaultFont 16 bold")
 loadtitle.pack(fill="y", expand=True)
-loadtitle.bind("<Button-1>", lambda e: print(top.geometry()))
+plabel.bind("<Button-1>", trap)
 csvstatus = Label(csvarea, textvariable=loadstatus)
 csvstatus.pack()
 availfields = Label(csvarea, textvariable=available)
