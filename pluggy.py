@@ -5,7 +5,8 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common import exceptions
 from PIL import Image, ImageTk
-import csv, os
+import csv
+import os
 
 top = Tk()
 user_vars = {}
@@ -20,22 +21,17 @@ paused = False
 cliks = 0
 
 
-def pause():
-    print(paused)
-
-
 def asciify(s):
-    print(s)
     return s.encode('ascii', errors='ignore').decode().strip()
 
 
-def updateVars(dat):
+def update_vars(dat):
     dat = [d for d in dat]
     fields = ", \n".join(dat) if len(dat) < 15 else ", \n".join(dat[:15]) + " ..."
     available.set("Available fields:\n" + fields)
 
 
-def allindices(string, sub, offset=0):
+def all_indices(string, sub, offset=0):
     listindex = []
     i = string.find(sub, offset)
     while i >= 0:
@@ -57,7 +53,6 @@ def load_csv():
         try:
             rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
         except UnicodeDecodeError as e:
-            print(e)
             messagebox.showerror("Parsing Error",
                                  "Unable to parse csv file due to unexpected unicode characters in column names. " +
                                  "Consider renaming your column names and trying agin. " +
@@ -65,7 +60,7 @@ def load_csv():
             loadstatus.set("Import a CSV")
             available.set("")
             return
-        updateVars(rfieldnames)
+        update_vars(rfieldnames)
         for row in reader:
             row = {key.replace(" ", "_"): row[key] for key in row.keys()}
             csvdat.append(row)
@@ -95,17 +90,19 @@ def pop_a_window():
             driver.get("https://web.tabliss.io/")
 
 
-def parseCommand(s):
+def parse_command(s):
     global driver
     tokens = s.split()
-    if len(tokens) < 2 or driver is None:
+    if len(tokens) < 1 or driver is None:
         return
     try:
+        # Three token functions
         if tokens[0] == 'set':
-            quotes = allindices(s, "'")
+            quotes = all_indices(s, "'")
             user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
         if tokens[0] == 'paste' and len(tokens) == 4:
             user_vars[tokens[1]] = user_vars[tokens[2]] + user_vars[tokens[3]]
+        # Two token functions
         if tokens[0] == 'click':
             global selected
             toclick = user_vars[tokens[1]]
@@ -116,8 +113,15 @@ def parseCommand(s):
             driver.get(user_vars[tokens[1]])
         if tokens[0] == "type":
             selected.send_keys(user_vars[tokens[1]])
+        # One token functions
         if tokens[0] == "enter":
             selected.send_keys(Keys.RETURN)
+        if tokens[0] == 'confirm':
+            ok = messagebox.askyesnocancel("Confirmation", "Does this look right?")
+            if ok is None:
+                raise TypeError("Abort mission")
+            if not ok:
+                raise LookupError
     except exceptions.InvalidSelectorException:
         raise exceptions.InvalidSelectorException("hm")
     except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
@@ -143,7 +147,7 @@ def run_program(tb, mainwindow):
             user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
             for line in program:
                 mainwindow.update()
-                parseCommand(line.strip())
+                parse_command(line.strip())
         except ValueError:
             messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
             break
@@ -160,6 +164,10 @@ def run_program(tb, mainwindow):
             messagebox.showerror("Program Error", "Invalid css selector used. " +
                                  "Make sure you're using the right selectors and check your click commands.")
             return
+        except LookupError:
+            continue
+        except TypeError:
+            break
 
 
 def test_program(tb, mainwindow):
@@ -182,8 +190,8 @@ def test_program(tb, mainwindow):
         user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
         for line in program:
             mainwindow.update()
-            parseCommand(line.strip())
-        updateVars(user_vars.keys())
+            parse_command(line.strip())
+        update_vars(user_vars.keys())
     except ValueError:
         messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
     except KeyError as e:
@@ -194,7 +202,10 @@ def test_program(tb, mainwindow):
     except IndexError:
         messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
     except exceptions.InvalidSelectorException:
-        print("invalid selector")
+        return
+    except LookupError:
+        return
+    except TypeError:
         return
 
 
@@ -234,13 +245,15 @@ def trap(e):
     if cliks > 1:
         v = messagebox.askyesno("Proceed with caution", "Are you the developer?")
         if v:
+            messagebox.showerror("You are not!", "You will be punished for your insolence.")
             for i in range(20):
-                messagebox.showerror("Big mistake", "You have activated my trap card")
+                messagebox.showerror("Big mistake", "You have " + str(i) + " message boxes left in your punishment")
         cliks = 0
 
 
 top.title("Pluggy")
 top.iconbitmap("pluggy.ico")
+
 # Code to add widgets will go here...
 textarea = Text(top, height=6, width=30)
 scrollbar = Scrollbar(top, command=textarea.yview)
