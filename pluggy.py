@@ -96,37 +96,57 @@ def parse_command(s):
     if len(tokens) < 1 or driver is None:
         return
     try:
-        # Three token functions
-        if tokens[0] == 'set':
-            quotes = all_indices(s, "'")
-            user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
-        if tokens[0] == 'paste' and len(tokens) == 4:
-            user_vars[tokens[1]] = user_vars[tokens[2]] + user_vars[tokens[3]]
-        # Two token functions
         if tokens[0] == 'click':
             global selected
             toclick = user_vars[tokens[1]]
             elem = driver.find_element_by_css_selector(toclick)
             selected = elem
             driver.execute_script("document.querySelector('" + toclick + "').click();")
-        if tokens[0] == 'goto':
-            driver.get(user_vars[tokens[1]])
+            return
         if tokens[0] == "type":
             selected.send_keys(user_vars[tokens[1]])
-        # One token functions
+            return
+        if tokens[0] == "clear":
+            selected.send_keys(Keys.CONTROL + "a")
+            selected.send_keys(Keys.DELETE)
+            return
         if tokens[0] == "enter":
             selected.send_keys(Keys.RETURN)
+            return
+        if tokens[0] == 'goto':
+            driver.get(user_vars[tokens[1]])
+            return
+        if tokens[0] == 'set':
+            quotes = all_indices(s, "'")
+            user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
+            return
+        if tokens[0] == 'get':
+            user_vars[tokens[1]] = driver.find_element_by_css_selector(user_vars[tokens[2]]).get_attribute("value")
+            return
+        if tokens[0] == 'paste' and len(tokens) == 4:
+            user_vars[tokens[1]] = user_vars[tokens[2]] + user_vars[tokens[3]]
+            return
+        if tokens[0] == 'cut':
+            tokens = [len(user_vars[tokens[2]]) if t == 'END' else int(t) if t.isdigit() else t for t in tokens]
+            if len(tokens) == 4:
+                user_vars[tokens[1]] = user_vars[tokens[2]][:tokens[3]]
+            elif len(tokens) == 5:
+                user_vars[tokens[1]] = user_vars[tokens[2]][tokens[3]:tokens[4]]
+            return
         if tokens[0] == 'confirm':
             ok = messagebox.askyesnocancel("Confirmation", "Does this look right?")
             if ok is None:
                 raise TypeError("Abort mission")
             if not ok:
                 raise LookupError
+            return
     except exceptions.InvalidSelectorException:
+        print("Selector error")
         raise exceptions.InvalidSelectorException("hm")
     except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
         driver.quit()
         driver = None
+        print("Value error", e)
         raise ValueError("Some webdriver related exception occurred.")
 
 
@@ -245,9 +265,8 @@ def trap(e):
     if cliks > 1:
         v = messagebox.askyesno("Proceed with caution", "Are you the developer?")
         if v:
-            messagebox.showerror("You are not!", "You will be punished for your insolence.")
             for i in range(20):
-                messagebox.showerror("Big mistake", "You have " + str(i) + " message boxes left in your punishment")
+                messagebox.showerror("Big mistake", "You have activated my trap card")
         cliks = 0
 
 
