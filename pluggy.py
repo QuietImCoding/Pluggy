@@ -4,7 +4,11 @@ from tkinter import messagebox
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common import exceptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from PIL import Image, ImageTk
+import re
 import csv
 import os
 
@@ -90,6 +94,15 @@ def pop_a_window():
             driver.get("https://web.tabliss.io/")
 
 
+def expand_boi(s):
+    if '{' not in s:
+        return s
+    vars_needed = re.findall('{([^}]+)}', s)
+    for var in vars_needed:
+        s = s.replace('{' + var + '}', user_vars[var])
+    return s
+
+
 def parse_command(s):
     global driver
     tokens = s.split()
@@ -99,7 +112,7 @@ def parse_command(s):
         if tokens[0] == 'click':
             global selected
             toclick = user_vars[tokens[1]]
-            elem = driver.find_element_by_css_selector(toclick)
+            elem = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, toclick)))
             selected = elem
             driver.execute_script("document.querySelector('" + toclick + "').click();")
             return
@@ -118,7 +131,7 @@ def parse_command(s):
             return
         if tokens[0] == 'set':
             quotes = all_indices(s, "'")
-            user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
+            user_vars[tokens[1]] = expand_boi(s[quotes[0] + 1:quotes[1]])
             return
         if tokens[0] == 'get':
             user_vars[tokens[1]] = driver.find_element_by_css_selector(user_vars[tokens[2]]).get_attribute("value")
@@ -146,7 +159,8 @@ def parse_command(s):
     except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
         driver.quit()
         driver = None
-        print("Value error", e)
+        print(e)
+        print("Value error" + e.message)
         raise ValueError("Some webdriver related exception occurred.")
 
 
@@ -251,12 +265,13 @@ def save_program(tb):
 
 
 def end_program():
-    global driver
-    if driver is not None:
-        driver.quit()
-        driver = None
-    else:
-        messagebox.showerror("No running program", "There is no program running that you can end.")
+    raise TypeError
+    # global driver
+    # if driver is not None:
+    #     driver.quit()
+    #     driver = None
+    # else:
+    #     messagebox.showerror("No running program", "There is no program running that you can end.")
 
 
 def trap(e):
