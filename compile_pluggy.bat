@@ -1,4 +1,6 @@
 @echo off
+:looks_cooler
+color 0a
 
 :build
 del pluggy.zip
