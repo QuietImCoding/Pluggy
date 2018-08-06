@@ -1,8 +1,4 @@
-
 *.xml
-
 *.iml
-
-build
-dist
 compile_pluggy.bat
+pluggy.zip
