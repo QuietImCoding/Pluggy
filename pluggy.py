@@ -21,8 +21,10 @@ loadstatus = StringVar()
 loadstatus.set("Not Yet Loaded")
 available = StringVar()
 selected = None
+selector = None
 paused = False
 cliks = 0
+logging = False
 
 
 def asciify(s):
@@ -57,6 +59,7 @@ def load_csv():
         try:
             rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
         except UnicodeDecodeError as e:
+            print(repr(e))
             messagebox.showerror("Parsing Error",
                                  "Unable to parse csv file due to unexpected unicode characters in column names. " +
                                  "Consider renaming your column names and trying agin. " +
@@ -76,9 +79,19 @@ def export_csv():
                                          filetypes=(("CSV files", "*.csv"), ("All files", "*.*")))
     if fname == "":
         return
-    with open(fname, encoding="utf-8") as csvfile:
-        writer = csv.DictWriter(csvfile)
-        writer.writerows(resultdat)
+    with open(fname, 'w', encoding="utf-8", newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=csvdat[0].keys())
+        writer.writeheader()
+        writer.writerows(csvdat)
+
+
+def query_selector(css_selector, wait_time, friendly=False):
+    try:
+        return WebDriverWait(driver, wait_time).until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selector)))
+    except exceptions.TimeoutException:
+        if friendly:
+            return None
+        raise LookupError
 
 
 def pop_a_window():
@@ -103,26 +116,36 @@ def expand_boi(s):
     return s
 
 
-def parse_command(s):
+def parse_command(s, rownum):
     global driver
     tokens = s.split()
     if len(tokens) < 1 or driver is None:
         return
     try:
         if tokens[0] == 'click':
-            global selected
-            toclick = user_vars[tokens[1]]
-            elem = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, toclick)))
+            global selected, selector
+            selector = user_vars[tokens[1]]
+            elem = query_selector(selector, 3)
             selected = elem
-            driver.execute_script("document.querySelector('" + toclick + "').click();")
+            driver.execute_script("document.querySelector('" + selector + "').click();")
             return
         if tokens[0] == "type":
-            selected.send_keys(user_vars[tokens[1]])
+            selected.send_keys(expand_boi(user_vars[tokens[1]]))
+            return
+        if tokens[0] == "put":
+            totype = expand_boi(user_vars[tokens[1]]).replace("\n", "\\n").replace('"', '\\"')
+            scriptyboi = 'document.querySelector("' + selector + '").value = "' + totype + '";'
+            driver.execute_script(scriptyboi)
             return
         if tokens[0] == "clear":
             selected.send_keys(Keys.CONTROL + "a")
             selected.send_keys(Keys.DELETE)
             return
+        if tokens[0] == "log":
+            global logging
+            if not logging:
+                logging = True
+            csvdat[rownum][tokens[1]] = user_vars[tokens[1]]
         if tokens[0] == "enter":
             selected.send_keys(Keys.RETURN)
             return
@@ -131,10 +154,17 @@ def parse_command(s):
             return
         if tokens[0] == 'set':
             quotes = all_indices(s, "'")
-            user_vars[tokens[1]] = expand_boi(s[quotes[0] + 1:quotes[1]])
+            user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
             return
         if tokens[0] == 'get':
-            user_vars[tokens[1]] = driver.find_element_by_css_selector(user_vars[tokens[2]]).get_attribute("value")
+            elem = query_selector(user_vars[tokens[2]], 1, friendly=True)
+            if elem is None:
+                user_vars[tokens[1]] = ""
+                return
+            if elem.tag_name == 'input' or elem.tag_name == 'textarea':
+                user_vars[tokens[1]] = elem.get_attribute("value")
+            else:
+                user_vars[tokens[1]] = elem.get_attribute("text")
             return
         if tokens[0] == 'paste' and len(tokens) == 4:
             user_vars[tokens[1]] = user_vars[tokens[2]] + user_vars[tokens[3]]
@@ -160,7 +190,7 @@ def parse_command(s):
         driver.quit()
         driver = None
         print(e)
-        print("Value error" + e.message)
+        print("Value error" + repr(e))
         raise ValueError("Some webdriver related exception occurred.")
 
 
@@ -176,21 +206,22 @@ def run_program(tb, mainwindow):
     if len(csvdat) == 0:
         messagebox.showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
         return
-    for row in csvdat:
+    for rownum in range(len(csvdat)):
+        row = csvdat[rownum]
         try:
             user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
             for line in program:
                 mainwindow.update()
-                parse_command(line.strip())
+                parse_command(line.strip(), rownum)
         except ValueError:
             messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
-            break
+            return
         except KeyError as e:
             messagebox.showerror("Program Error", "Variable "
                                  + str(e)
                                  + " not found. Check your spelling and capitalization." +
                                  " Remember any spaces in variable names are replaced with underscores")
-            break
+            return
         except IndexError:
             messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
             break
@@ -201,7 +232,9 @@ def run_program(tb, mainwindow):
         except LookupError:
             continue
         except TypeError:
-            break
+            return
+    if logging:
+        export_csv()
 
 
 def test_program(tb, mainwindow):
@@ -224,7 +257,7 @@ def test_program(tb, mainwindow):
         user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
         for line in program:
             mainwindow.update()
-            parse_command(line.strip())
+            parse_command(line.strip(), 0)
         update_vars(user_vars.keys())
     except ValueError:
         messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
@@ -240,6 +273,7 @@ def test_program(tb, mainwindow):
     except LookupError:
         return
     except TypeError:
+        print("YOU ENDED ME")
         return
 
 
@@ -265,13 +299,7 @@ def save_program(tb):
 
 
 def end_program():
-    raise TypeError
-    # global driver
-    # if driver is not None:
-    #     driver.quit()
-    #     driver = None
-    # else:
-    #     messagebox.showerror("No running program", "There is no program running that you can end.")
+    raise TypeError("problem")
 
 
 def trap(e):
