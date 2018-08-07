@@ -10,7 +10,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from PIL import Image, ImageTk
 import re
 import csv
-import os
 
 top = Tk()
 user_vars = {}
@@ -37,6 +36,10 @@ def update_vars(dat):
     available.set("Available fields:\n" + fields)
 
 
+def fix_file_ext(fname, ext):
+    return fname if "\." in fname else fname + ext
+
+
 def all_indices(string, sub, offset=0):
     listindex = []
     i = string.find(sub, offset)
@@ -51,7 +54,7 @@ def load_csv():
                                        filetypes=(("CSV files", "*.csv"), ("All files", "*.*")))
     if fname == "":
         return
-    loadstatus.set("Loading " + os.path.basename(fname))
+    loadstatus.set("Loading CSV")
     global csvdat
     csvdat = []
     with open(fname, encoding="utf-8") as csvfile:
@@ -59,7 +62,6 @@ def load_csv():
         try:
             rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
         except UnicodeDecodeError as e:
-            print(repr(e))
             messagebox.showerror("Parsing Error",
                                  "Unable to parse csv file due to unexpected unicode characters in column names. " +
                                  "Consider renaming your column names and trying agin. " +
@@ -71,7 +73,7 @@ def load_csv():
         for row in reader:
             row = {key.replace(" ", "_"): row[key] for key in row.keys()}
             csvdat.append(row)
-    loadstatus.set(os.path.basename(fname) + " loaded.")
+    loadstatus.set("CSV loaded.")
 
 
 def export_csv():
@@ -79,7 +81,7 @@ def export_csv():
                                          filetypes=(("CSV files", "*.csv"), ("All files", "*.*")))
     if fname == "":
         return
-    with open(fname, 'w', encoding="utf-8", newline='') as csvfile:
+    with open(fix_file_ext(fname, ".csv"), 'w', encoding="utf-8", newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=csvdat[0].keys())
         writer.writeheader()
         writer.writerows(csvdat)
@@ -91,7 +93,7 @@ def query_selector(css_selector, wait_time, friendly=False):
     except exceptions.TimeoutException:
         if friendly:
             return None
-        raise LookupError
+        raise exceptions.InvalidSelectorException(css_selector)
 
 
 def pop_a_window():
@@ -157,14 +159,14 @@ def parse_command(s, rownum):
             user_vars[tokens[1]] = s[quotes[0] + 1:quotes[1]]
             return
         if tokens[0] == 'get':
-            elem = query_selector(user_vars[tokens[2]], 1, friendly=True)
+            elem = query_selector(user_vars[tokens[2]], 3, friendly=True)
             if elem is None:
                 user_vars[tokens[1]] = ""
                 return
             if elem.tag_name == 'input' or elem.tag_name == 'textarea':
                 user_vars[tokens[1]] = elem.get_attribute("value")
             else:
-                user_vars[tokens[1]] = elem.get_attribute("text")
+                user_vars[tokens[1]] = elem.text
             return
         if tokens[0] == 'paste' and len(tokens) == 4:
             user_vars[tokens[1]] = user_vars[tokens[2]] + user_vars[tokens[3]]
@@ -181,16 +183,11 @@ def parse_command(s, rownum):
             if ok is None:
                 raise TypeError("Abort mission")
             if not ok:
-                raise LookupError
+                raise LookupError()
             return
-    except exceptions.InvalidSelectorException:
-        print("Selector error")
-        raise exceptions.InvalidSelectorException("hm")
-    except (exceptions.NoSuchWindowException, exceptions.WebDriverException, AttributeError) as e:
+    except (exceptions.NoSuchWindowException, AttributeError) as e:
         driver.quit()
         driver = None
-        print(e)
-        print("Value error" + repr(e))
         raise ValueError("Some webdriver related exception occurred.")
 
 
@@ -223,11 +220,13 @@ def run_program(tb, mainwindow):
                                  " Remember any spaces in variable names are replaced with underscores")
             return
         except IndexError:
-            messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
+            messagebox.showerror("Program Error", "Syntax error. Make sure all commands have the right amount of args" +
+                                 " and that you're only using single quotes.")
             break
-        except exceptions.InvalidSelectorException:
-            messagebox.showerror("Program Error", "Invalid css selector used. " +
-                                 "Make sure you're using the right selectors and check your click commands.")
+        except exceptions.InvalidSelectorException as ise:
+            messagebox.showerror("Program Error", "Unable to find selector '" +
+                                 str(ise)[str(ise).find(':') + 2:].strip() +
+                                 "'. Make sure you're using the right selectors and check your click commands.")
             return
         except LookupError:
             continue
@@ -267,13 +266,17 @@ def test_program(tb, mainwindow):
                              + " not found. Check your spelling and capitalization. "
                              + "Remember any spaces in variable names are replaced with underscores")
     except IndexError:
-        messagebox.showerror("Program Error", "Problem reading set command. Check your quotes.")
-    except exceptions.InvalidSelectorException:
+        messagebox.showerror("Program Error", "Syntax error. Make sure all commands have the right amount of args" +
+                             " and that you're only using single quotes.")
+        return
+    except exceptions.InvalidSelectorException as ise:
+        messagebox.showerror("Program Error", "Unable to find selector '" +
+                             str(ise)[str(ise).find(':') + 2:].strip() +
+                             "'. Make sure you're using the right selectors and check your click commands.")
         return
     except LookupError:
         return
     except TypeError:
-        print("YOU ENDED ME")
         return
 
 
@@ -293,7 +296,7 @@ def save_program(tb):
                                          filetypes=(("Pluggy program", "*.plgy"), ("All files", "*.*")))
     if fname == "":
         return
-    with open(fname if ".plgy" in fname else fname + ".plgy", "w") as fopen:
+    with open(fix_file_ext(fname, ".plgy"), "w") as fopen:
         text2save = str(tb.get("1.0", END))
         fopen.write(text2save)
 
