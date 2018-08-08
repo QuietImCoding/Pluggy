@@ -43,7 +43,7 @@ Generally, the process to run a script will be:
 
 ## Finding website elements
 
-In order to use the ```click``` command, you first need to ```set``` a string containing the location of the element on the website. 
+In order to use the `click` command, you first need to `set` a string containing the location of the element on the website. 
 The way Pluggy finds these is using the CSS selector. 
 
 To find the CSS selector of an element in Google Chrome:
@@ -73,22 +73,20 @@ To find the CSS selector of an element in Google Chrome:
 ## Pluggy Script Syntax
 
 The syntax of pluggy scripts revolves around the use of variables to store any string of text that isn't a command. 
-That means that probably the most important command is the ```set``` command
+That means that probably the most important command is the `set` command
 
-The syntax of the ```set``` command is pretty simple. ```set <variable name> 'your string here'```.
+The syntax of the `set` command is pretty simple. `set <var name> 'your string here'`.
 One important thing to note here is that you need to use single quotes around your text. **Double quotes will not work!**
 
-The next important command is the ```goto``` command. This command is used to take your browser to a certain website.
+Besides the `set` command, there are four other basic commands you can use for interacting with the page. These are listed below.
 
-As an example, if you import the *animaldata.csv* file from the examples folder and just run ```goto url```, 
-you'll see your browser going to the google URL for each animal in the file. 
+* `goto <website>` This command takes one argument and takes your browser to *website*.
+* `click <selector>` This command takes one argument and is used to click the element described by the CSS selector in *selector*.
+* `type <string>` This command takes one argument and types *string* into the last element clicked.
+* `put <string>` This command takes one argument and replaces whatever was in the last elment clicked with *string*.
+It is particularly useful with large blocks of text because it is much faster and preserves escape sequences such as `\n`
 
-Of course, the whole point of this project is interacting with the page so the language contains two functions to
-deal with page interaction: ```click``` and ```type```. These act like you would expect when using a website. 
-You always want to click the element before you use the type command. Both commands expect to be using a string variable
-so even if you just want a short string you'll need to set the variable in advance.
-
-Putting it all together, we can try to write a script that uses DuckDuckGo instead of Google
+With these five commands, we can try to write a script that uses DuckDuckGo instead of Google:
 
 ```
 set duckduckgo 'https://duckduckgo.com/'
@@ -101,16 +99,47 @@ type name
 click searchbtn
 ```
 
-Knowing the four basic commands, there are only two more commands that are available. These are the ```cut ``` and ```paste``` commands. 
+Knowing the five basic commands will allow you to automate a large number of tasks if you pre-process your data somewhat.
+However, there are a few more advanced commands that you can use to have Pluggy do even more hard work for you:
 
-The ```cut``` command is still under construction, but the ```paste``` command can be used as
- ```paste <new variable name> <old variable 1> <old variable 2>```
- 
- An example can be used to replace the url field in the animal data. Instead of having to store the URL, you can instead use
- 
+* ```cut <var name> <original var> <optional start> <end>``` This saves whatever was in *original var* between *start* and *end* into *var name*.
+If only one number is provided, this command will get everything from the start of the string to that index. Use END to indicate the end of the string.
+* ```paste <var name> <var1> <var2>``` This appends *var2* to the end of *var1* and stores the result in *var name*
+* ```get <var name> <selector>``` This will store the text from the element identified by *selector* into *var name*
+* ```clear``` Clears the last input box clicked
+* ```enter``` Simulates pressing the "enter" key on your keyboard. 
+Useful for selecting elements from dropdowns or submitting forms without finding the button.
+
+Finally, the `log` command in pluggy allows you to keep a log of what happened while your script ran, so that you can look over it later. 
+This command is generally used with the results of a `get` command and uses the syntax `log <var name>`. 
+The combination of these two commands allows you to find and store the text within an element, or to check if an element ever appeared.
+After your script finishes running, a window will pop up asking you where you want to store the logged results.
+
+To tie this all together, heare's one more example program, still using the animals CSV file in the examples folder:
+
  ```
- set googlesearch 'https://www.google.com/search?q='
- paste searchurl googlesearch name
- goto searchurl
- ```
- 
+ set url 'https://duckduckgo.com/'
+set searchbox_sel '#search_form_input_homepage'
+set firstres_sel '#r1-0 > div > h2 > a.result__a'
+set space ' '
+
+cut shortheight height 4
+paste oddquery name space
+paste oddquery oddquery shortheight
+
+goto url
+click searchbox_sel
+put oddquery
+enter
+
+get res1 firstres_sel
+log res1
+
+click firstres_sel
+```
+
+As you can hopefully tell, this script goes to duckduckgo, 
+searches for the name of the animal followed by the height of the animal rounded to 4 digits, 
+and then logs and clicks the first result.
+
+Good luck using Pluggy! If you have any questions, you can email me at the email address on my profile or raise an issue on Github. 

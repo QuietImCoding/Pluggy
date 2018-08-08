@@ -1,0 +1,17 @@
+set url 'https://duckduckgo.com/'
+set searchbox_sel '#search_form_input_homepage'
+set firstres_sel '#r1-0 > div > h2 > a.result__a'
+set space ' '
+
+cut shortheight height 4
+paste oddquery name space
+paste oddquery oddquery shortheight
+
+goto url
+put oddquery
+enter
+
+get res1 firstres_sel
+log res1
+
+click firstres_sel
