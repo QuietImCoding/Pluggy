@@ -1,4 +1,6 @@
 # Pluggy
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy?ref=badge_shield)
+
 Plug data from CSV file into a website
 
 ## Description
@@ -15,7 +17,7 @@ If you just want to use pluggy as-is, you can extract the Pluggy.zip file to a f
 Once pluggy is opened, you should see a window that looks like this
 
 ![alt text](window.PNG "Pluggy Main Window")
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy?ref=badge_shield)
+
 
 The main parts of the window you'll see are:
 * The CSV import button
