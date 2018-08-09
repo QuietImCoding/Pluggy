@@ -4,11 +4,12 @@ color 0a
 
 :build
 del pluggy.zip
-pyinstaller -y -i pluggy.ico -w pluggy.py
-copy pluggy.ico dist\pluggy
-copy chromedriver.exe dist\pluggy
-copy pluggy.png dist\pluggy
-move dist\pluggy .
+pyinstaller -y -F -i pluggy.ico -w pluggy.py
+copy pluggy.ico dist
+copy chromedriver.exe dist
+copy pluggy.png dist
+mkdir pluggy
+move dist\* pluggy
 
 :cleanup
 del /s /f /q build

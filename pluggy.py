@@ -1,15 +1,18 @@
-from tkinter import filedialog
-from tkinter import *
-from tkinter import messagebox
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.common import exceptions
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from PIL import Image, ImageTk
+from csv import DictWriter, DictReader
 import re
-import csv
+from tkinter import LEFT, N, S, E, W, END
+from tkinter import Tk, StringVar, Text, Button, Scrollbar, Frame, Label
+from tkinter import filedialog
+from tkinter.messagebox import askyesno, askokcancel, askyesnocancel
+from tkinter.messagebox import showerror, showwarning
+
+from PIL import Image, ImageTk
+from selenium import webdriver
+from selenium.common.exceptions import InvalidSelectorException, TimeoutException, NoSuchWindowException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.ui import WebDriverWait
 
 top = Tk()
 user_vars = {}
@@ -24,6 +27,7 @@ selector = None
 paused = False
 cliks = 0
 logging = False
+running = True
 
 
 def asciify(s):
@@ -37,7 +41,10 @@ def update_vars(dat):
 
 
 def fix_file_ext(fname, ext):
-    return fname if "." in fname else fname + ext
+    foundext = re.search("[^\/]+\.[^\/]*$", fname)
+    o = fname if foundext is not None else fname + ext
+    print(fname, ":", o)
+    return o
 
 
 def all_indices(string, sub, offset=0):
@@ -58,14 +65,14 @@ def load_csv():
     global csvdat
     csvdat = []
     with open(fname, encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
+        reader = DictReader(csvfile)
         try:
             rfieldnames = [asciify(fieldname).replace(" ", "_") for fieldname in reader.fieldnames]
         except UnicodeDecodeError as e:
-            messagebox.showerror("Parsing Error",
-                                 "Unable to parse csv file due to unexpected unicode characters in column names. " +
-                                 "Consider renaming your column names and trying agin. " +
-                                 "If the problem persists, file an issue on Github")
+            showerror("Parsing Error",
+                      "Unable to parse csv file due to unexpected unicode characters in column names. " +
+                      "Consider renaming your column names and trying agin. " +
+                      "If the problem persists, file an issue on Github")
             loadstatus.set("Import a CSV")
             available.set("")
             return
@@ -82,18 +89,18 @@ def export_csv():
     if fname == "":
         return
     with open(fix_file_ext(fname, ".csv"), 'w', encoding="utf-8", newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=csvdat[0].keys())
+        writer = DictWriter(csvfile, fieldnames=csvdat[0].keys())
         writer.writeheader()
         writer.writerows(csvdat)
 
 
 def query_selector(css_selector, wait_time, friendly=False):
     try:
-        return WebDriverWait(driver, wait_time).until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selector)))
-    except exceptions.TimeoutException:
+        return WebDriverWait(driver, wait_time).until(ec.presence_of_element_located((By.CSS_SELECTOR, css_selector)))
+    except TimeoutException:
         if friendly:
             return None
-        raise exceptions.InvalidSelectorException(css_selector)
+        raise InvalidSelectorException(css_selector)
 
 
 def pop_a_window():
@@ -102,8 +109,8 @@ def pop_a_window():
         driver = webdriver.Chrome()
         driver.get("https://web.tabliss.io/")
     else:
-        openanyway = messagebox.askokcancel("Pluggy",
-                                            "Only one webdriver can be used at a time. Are you sure you want to open another one?")
+        openanyway = askokcancel("Pluggy",
+                                 "Only one webdriver can be used at a time. Are you sure you want to open another one?")
         if openanyway:
             driver = webdriver.Chrome()
             driver.get("https://web.tabliss.io/")
@@ -116,6 +123,11 @@ def expand_boi(s):
     for var in vars_needed:
         s = s.replace('{' + var + '}', user_vars[var])
     return s
+
+
+def end_program():
+    global running
+    running = False
 
 
 def parse_command(s, rownum):
@@ -179,54 +191,59 @@ def parse_command(s, rownum):
                 user_vars[tokens[1]] = user_vars[tokens[2]][tokens[3]:tokens[4]]
             return
         if tokens[0] == 'confirm':
-            ok = messagebox.askyesnocancel("Confirmation", "Does this look right?")
+            ok = askyesnocancel("Confirmation", "Does this look right?")
             if ok is None:
                 raise TypeError("Abort mission")
             if not ok:
                 raise LookupError()
             return
-    except (exceptions.NoSuchWindowException, AttributeError) as e:
+    except (NoSuchWindowException, AttributeError):
         driver.quit()
         driver = None
         raise ValueError("Some webdriver related exception occurred.")
+    except IndexError:
+        raise IndexError("Error in command: '" + s + "'. ")
 
 
 def run_program(tb, mainwindow):
-    global driver
+    global running, logging
+    running = True
     if driver is None:
-        messagebox.showerror("No open browser",
-                             "Make sure you have a browser open before you run the script.")
+        showerror("No open browser",
+                  "Make sure you have a browser open before you run the script.")
         return
     program = tb.get("1.0", 'end-1c').split("\n")
     global user_vars
     user_vars = {}
     if len(csvdat) == 0:
-        messagebox.showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
+        showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
         return
     for rownum in range(len(csvdat)):
         row = csvdat[rownum]
         try:
             user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
             for line in program:
+                if not running:
+                    return
                 mainwindow.update()
                 parse_command(line.strip(), rownum)
         except ValueError:
-            messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
+            showwarning("Browser Session Disconnected", "Your browser session was disconnected")
             return
         except KeyError as e:
-            messagebox.showerror("Program Error", "Variable "
-                                 + str(e)
-                                 + " not found. Check your spelling and capitalization." +
-                                 " Remember any spaces in variable names are replaced with underscores")
+            showerror("Program Error", "Variable "
+                      + str(e)
+                      + " not found. Check your spelling and capitalization." +
+                      " Remember any spaces in variable names are replaced with underscores")
             return
         except IndexError:
-            messagebox.showerror("Program Error", "Syntax error. Make sure all commands have the right amount of args" +
-                                 " and that you're only using single quotes.")
+            showerror("Program Error", "Syntax error. Make sure all commands have the right amount of args" +
+                      " and that you're only using single quotes.")
             break
-        except exceptions.InvalidSelectorException as ise:
-            messagebox.showerror("Program Error", "Unable to find selector '" +
-                                 str(ise)[str(ise).find(':') + 2:].strip() +
-                                 "'. Make sure you're using the right selectors and check your click commands.")
+        except InvalidSelectorException as ise:
+            showerror("Program Error", "Unable to find selector '" +
+                      str(ise)[str(ise).find(':') + 2:].strip() +
+                      "'. Make sure you're using the right selectors and check your click commands.")
             return
         except LookupError:
             continue
@@ -234,15 +251,15 @@ def run_program(tb, mainwindow):
             return
     if logging:
         export_csv()
+        logging = False
 
 
 def test_program(tb, mainwindow):
-    global driver
-    global csvdat
-
+    global running
+    running = True
     if driver is None:
-        messagebox.showerror("No open browser",
-                             "Make sure you have a browser open before you run the script.")
+        showerror("No open browser",
+                  "Make sure you have a browser open before you run the script.")
         return
     program = tb.get("1.0", 'end-1c').split("\n")
     global user_vars
@@ -250,29 +267,31 @@ def test_program(tb, mainwindow):
     if len(csvdat) > 0:
         row = csvdat[0]
     else:
-        messagebox.showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
+        showerror("No CSV loaded", "Be sure to load some data before you try to run your program.")
         return
     try:
         user_vars = {k: row[k] if k in row.keys() else user_vars[k] for k in user_vars.keys() | row.keys()}
         for line in program:
+            if not running:
+                return
             mainwindow.update()
             parse_command(line.strip(), 0)
         update_vars(user_vars.keys())
     except ValueError:
-        messagebox.showwarning("Browser Session Disconnected", "Your browser session was disconnected")
+        showwarning("Browser Session Disconnected", "Your browser session was disconnected")
     except KeyError as e:
-        messagebox.showerror("Program Error", "Variable "
-                             + str(e)
-                             + " not found. Check your spelling and capitalization. "
-                             + "Remember any spaces in variable names are replaced with underscores")
-    except IndexError:
-        messagebox.showerror("Program Error", "Syntax error. Make sure all commands have the right amount of args" +
-                             " and that you're only using single quotes.")
+        showerror("Program Error", "Variable "
+                  + str(e)
+                  + " not found. Check your spelling and capitalization. "
+                  + "Remember any spaces in variable names are replaced with underscores")
+    except IndexError as ie:
+        showerror("Program Error", str(ie) + "Make sure all commands have the right amount of args" +
+                  " and that you're only using single quotes.")
         return
-    except exceptions.InvalidSelectorException as ise:
-        messagebox.showerror("Program Error", "Unable to find selector '" +
-                             str(ise)[str(ise).find(':') + 2:].strip() +
-                             "'. Make sure you're using the right selectors and check your click commands.")
+    except InvalidSelectorException as ise:
+        showerror("Program Error", "Unable to find selector '" +
+                  str(ise)[str(ise).find(':') + 2:].strip() +
+                  "'. Make sure you're using the right selectors and check your click commands.")
         return
     except LookupError:
         return
@@ -301,25 +320,21 @@ def save_program(tb):
         fopen.write(text2save)
 
 
-def end_program():
-    raise TypeError("problem")
-
-
 def trap(e):
     global cliks
     cliks += 1
     if cliks > 1:
-        v = messagebox.askyesno("Proceed with caution", "Are you the developer?")
+        v = askyesno("Proceed with caution", "Are you the developer?")
         if v:
             for i in range(20):
-                messagebox.showerror("Big mistake", "You have activated my trap card")
+                showerror("Big mistake", "You have activated my trap card")
         cliks = 0
 
 
+# Setting up Pluggy's GUI
 top.title("Pluggy")
 top.iconbitmap("pluggy.ico")
 
-# Code to add widgets will go here...
 textarea = Text(top, height=6, width=30)
 scrollbar = Scrollbar(top, command=textarea.yview)
 scrollbar.place(in_=textarea, relx=1.0, relheight=1.0, bordermode="outside")
