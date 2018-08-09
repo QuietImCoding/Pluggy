@@ -15,6 +15,7 @@ If you just want to use pluggy as-is, you can extract the Pluggy.zip file to a f
 Once pluggy is opened, you should see a window that looks like this
 
 ![alt text](window.PNG "Pluggy Main Window")
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy?ref=badge_shield)
 
 The main parts of the window you'll see are:
 * The CSV import button
@@ -143,3 +144,6 @@ searches for the name of the animal followed by the height of the animal rounded
 and then logs and clicks the first result.
 
 Good luck using Pluggy! If you have any questions, you can email me at the email address on my profile or raise an issue on Github. 
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FQuietImCoding%2FPluggy?ref=badge_large)
