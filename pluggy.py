@@ -37,7 +37,7 @@ def update_vars(dat):
 
 
 def fix_file_ext(fname, ext):
-    return fname if "\." in fname else fname + ext
+    return fname if "." in fname else fname + ext
 
 
 def all_indices(string, sub, offset=0):
