@@ -19,6 +19,7 @@ top = Tk()
 user_vars = {}
 driver = None
 csvdat = []
+csvdat = []
 resultdat = []
 loadstatus = StringVar()
 loadstatus.set("Not Yet Loaded")
@@ -41,9 +42,8 @@ def update_vars(dat):
 
 
 def fix_file_ext(fname, ext):
-    foundext = re.search("[^\/\\]+\.[^\/\\]*$", fname)
+    foundext = re.search("[^\/]+\.[^\/]*$", fname)
     o = fname if foundext is not None else fname + ext
-    print(fname, ":", o)
     return o
 
 
