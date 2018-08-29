@@ -41,7 +41,7 @@ def update_vars(dat):
 
 
 def fix_file_ext(fname, ext):
-    foundext = re.search("[^\/]+\.[^\/]*$", fname)
+    foundext = re.search("[^\/\\]+\.[^\/\\]*$", fname)
     o = fname if foundext is not None else fname + ext
     print(fname, ":", o)
     return o
@@ -107,7 +107,7 @@ def pop_a_window():
     global driver
     if driver is None:
         if platform == 'win32':
-            driver = webdriver.Chrome("./chromedriver.exe")
+            driver = webdriver.Chrome("chromedriver.exe")
         else:
             driver = webdriver.Chrome("./chromedriver")
         driver.get("https://web.tabliss.io/")
