@@ -1,4 +1,5 @@
 from csv import DictWriter, DictReader
+from sys import platform
 import re
 from tkinter import LEFT, N, S, E, W, END
 from tkinter import Tk, StringVar, Text, Button, Scrollbar, Frame, Label
@@ -28,7 +29,6 @@ paused = False
 cliks = 0
 logging = False
 running = True
-
 
 def asciify(s):
     return s.encode('ascii', errors='ignore').decode().strip()
@@ -106,7 +106,10 @@ def query_selector(css_selector, wait_time, friendly=False):
 def pop_a_window():
     global driver
     if driver is None:
-        driver = webdriver.Chrome()
+        if platform == 'win32':
+            driver = webdriver.Chrome("./chromedriver.exe")
+        else:
+            driver = webdriver.Chrome("./chromedriver")
         driver.get("https://web.tabliss.io/")
     else:
         openanyway = askokcancel("Pluggy",
@@ -333,7 +336,7 @@ def trap(e):
 
 # Setting up Pluggy's GUI
 top.title("Pluggy")
-top.iconbitmap("pluggy.ico")
+top.iconbitmap("./pluggy.ico")
 
 textarea = Text(top, height=6, width=30)
 scrollbar = Scrollbar(top, command=textarea.yview)
@@ -362,13 +365,14 @@ filebtns.pack(side=LEFT, padx=10)
 rightbtns.grid(row=1, column=1, sticky=S, padx=10, pady=10)
 
 csvarea = Frame(top)
-img = ImageTk.PhotoImage(Image.open("pluggy.png").convert("RGBA").resize((115, 125)))
+pluggy = Image.open(r'./pluggy.png').convert("RGBA").resize((115, 125))
+img = ImageTk.PhotoImage(pluggy)
 plabel = Label(csvarea, image=img)
-plabel.image = img
+plabel.img = img
 plabel.pack(padx=10, pady=10)
 loadtitle = Label(csvarea, text="CSV status", font="TkDefaultFont 16 bold")
 loadtitle.pack(fill="y", expand=True)
-plabel.bind("<Button-1>", trap)
+#plabel.bind("<Button-1>", trap)
 csvstatus = Label(csvarea, textvariable=loadstatus)
 csvstatus.pack()
 availfields = Label(csvarea, textvariable=available)
